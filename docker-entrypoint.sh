@@ -24,14 +24,22 @@ if [ "$1" = 'cassandra' ] || [ "$1" = 'bash' ]; then
 
 	: ${CASSANDRA_LISTEN_ADDRESS='auto'}
 	if [ "$CASSANDRA_LISTEN_ADDRESS" = 'auto' ]; then
-		CASSANDRA_LISTEN_ADDRESS="$(ip -o -4 addr list ens192 | sed -n 1p | awk '{print $4}' | cut -d/ -f1)"
+		CASSANDRA_LISTEN_ADDRESS="$(ip -o -4 addr list eth0 | sed -n 1p | awk '{print $4}' | cut -d/ -f1)"
+
+		if [ -z "$CASSANDRA_LISTEN_ADDRESS" ]; then
+			CASSANDRA_LISTEN_ADDRESS="$(ip -o -4 addr list ens192 | sed -n 1p | awk '{print $4}' | cut -d/ -f1)"
+		fi
 	fi
 
-	: ${CASSANDRA_BROADCAST_ADDRESS="$CASSANDRA_LISTEN_ADDRESS"}
-
+	: ${CASSANDRA_BROADCAST_ADDRESS='auto'}
 	if [ "$CASSANDRA_BROADCAST_ADDRESS" = 'auto' ]; then
-		CASSANDRA_BROADCAST_ADDRESS="$(ip -o -4 addr list ens192 | sed -n 1p | awk '{print $4}' | cut -d/ -f1)"
+		CASSANDRA_BROADCAST_ADDRESS="$(ip -o -4 addr list eth0 | sed -n 1p | awk '{print $4}' | cut -d/ -f1)"
+
+		if [ -z "$CASSANDRA_BROADCAST_ADDRESS" ]; then
+			CASSANDRA_BROADCAST_ADDRESS="$(ip -o -4 addr list ens192 | sed -n 1p | awk '{print $4}' | cut -d/ -f1)"
+		fi
 	fi
+
 	: ${CASSANDRA_BROADCAST_RPC_ADDRESS:=$CASSANDRA_BROADCAST_ADDRESS}
 
 	if [ -n "${CASSANDRA_NAME:+1}" ]; then
