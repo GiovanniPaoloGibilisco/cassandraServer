@@ -1,10 +1,32 @@
 #!/bin/bash
 set -e
 
-#we keep the cloudsuite entrypoint, it could come handy in a distributed setup
+# first arg is `-f` or `--some-option`
+# or there are no args
+if [ "$#" -eq 0 ] || [ "${1#-}" != "$1" ]; then
+	set -- cassandra -f "$@"
+fi
 
-echo Server IP
-ifconfig eth0 2>/dev/null | awk '/inet addr:/ {print $2}' | sed 's/addr://'
+# allow the container to be started with `--user`
+if [ "$1" = 'cassandra' -a "$(id -u)" = '0' ]; then
+	chown -R cassandra /var/lib/cassandra /var/log/cassandra "$CASSANDRA_CONFIG"
+	exec gosu cassandra "$BASH_SOURCE" "$@"
+fi
+
+_ip_address() {
+	# scrape the first non-localhost IP address of the container
+	# in Swarm Mode, we often get two IPs -- the container IP, and the (shared) VIP, and the container IP should always be first
+	ip address | awk '
+		$1 == "inet" && $NF != "lo" {
+			gsub(/\/.+$/, "", $2)
+			print $2
+			exit
+		}
+	'
+}
+
+echo Server IP "$(_ip_address)"
+
 
 if [ -z "$CASSANDRA_SEEDS" ]; then
     NEED_INIT=1
@@ -14,32 +36,19 @@ else
     echo Running regular Cassandra server.
 fi
 
-# first arg is `-f` or `--some-option`
-if [ "${1:0:1}" = '-' ]; then
-	set -- cassandra -f "$@"
-fi
-
-if [ "$1" = 'cassandra' ] || [ "$1" = 'bash' ]; then
+if [ "$1" = 'cassandra' ]; then
 	: ${CASSANDRA_RPC_ADDRESS='0.0.0.0'}
 
 	: ${CASSANDRA_LISTEN_ADDRESS='auto'}
 	if [ "$CASSANDRA_LISTEN_ADDRESS" = 'auto' ]; then
-		CASSANDRA_LISTEN_ADDRESS="$(ip -o -4 addr list eth0 | sed -n 1p | awk '{print $4}' | cut -d/ -f1)"
-
-		if [ -z "$CASSANDRA_LISTEN_ADDRESS" ]; then
-			CASSANDRA_LISTEN_ADDRESS="$(ip -o -4 addr list ens192 | sed -n 1p | awk '{print $4}' | cut -d/ -f1)"
-		fi
+		CASSANDRA_LISTEN_ADDRESS="$(_ip_address)"
 	fi
 
-	: ${CASSANDRA_BROADCAST_ADDRESS='auto'}
+	: ${CASSANDRA_BROADCAST_ADDRESS="$CASSANDRA_LISTEN_ADDRESS"}
+
 	if [ "$CASSANDRA_BROADCAST_ADDRESS" = 'auto' ]; then
-		CASSANDRA_BROADCAST_ADDRESS="$(ip -o -4 addr list eth0 | sed -n 1p | awk '{print $4}' | cut -d/ -f1)"
-
-		if [ -z "$CASSANDRA_BROADCAST_ADDRESS" ]; then
-			CASSANDRA_BROADCAST_ADDRESS="$(ip -o -4 addr list ens192 | sed -n 1p | awk '{print $4}' | cut -d/ -f1)"
-		fi
+		CASSANDRA_BROADCAST_ADDRESS="$(_ip_address)"
 	fi
-
 	: ${CASSANDRA_BROADCAST_RPC_ADDRESS:=$CASSANDRA_BROADCAST_ADDRESS}
 
 	if [ -n "${CASSANDRA_NAME:+1}" ]; then
@@ -47,7 +56,7 @@ if [ "$1" = 'cassandra' ] || [ "$1" = 'bash' ]; then
 	fi
 	: ${CASSANDRA_SEEDS:="$CASSANDRA_BROADCAST_ADDRESS"}
 	
-	sed -ri 's/(- seeds:) "127.0.0.1"/\1 "'"$CASSANDRA_SEEDS"'"/' "$CASSANDRA_CONFIG/cassandra.yaml"
+	sed -ri 's/(- seeds:).*/\1 "'"$CASSANDRA_SEEDS"'"/' "$CASSANDRA_CONFIG/cassandra.yaml"
 
 	for yaml in \
 		broadcast_address \
@@ -75,7 +84,7 @@ if [ "$1" = 'cassandra' ] || [ "$1" = 'bash' ]; then
 	done
 fi
 
-#exec "$@"
+
 cassandra
 sleep 5
 
