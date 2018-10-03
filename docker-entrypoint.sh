@@ -84,6 +84,7 @@ if [ "$1" = 'cassandra' ]; then
 	done
 fi
 
+echo "Cassandra listening on $CASSANDRA_LISTEN_ADDRESS"
 
 cassandra
 sleep 5
