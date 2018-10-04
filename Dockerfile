@@ -13,6 +13,7 @@ COPY setup_tables.txt /setup_tables.txt
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 COPY cassandra-env.sh /etc/cassandra/cassandra-env.sh
 COPY jvm.options /etc/cassandra/jvm.options
+RUN chown -R cassandra: /etc/cassandra
 RUN chmod +x /docker-entrypoint.sh
 RUN mkdir -p /usr/share/cassandra/logs
 RUN chmod 777 /usr/share/cassandra/logs
