@@ -86,6 +86,8 @@ fi
 
 echo "Cassandra listening on $CASSANDRA_LISTEN_ADDRESS"
 
+cp /etc/cassandra/jvm.options.new /etc/cassandra/jvm.options
+
 cassandra
 sleep 5
 
