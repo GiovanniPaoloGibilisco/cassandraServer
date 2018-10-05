@@ -35,6 +35,9 @@ else
     NEED_INIT=0
     echo Running regular Cassandra server.
 fi
+ls -alh /etc/cassandra/
+cp /etc/cassandra/cassandra.yaml.new /etc/cassandra/cassandra.yaml
+ls -alh /etc/cassandra/
 
 if [ "$1" = 'cassandra' ]; then
 	: ${CASSANDRA_RPC_ADDRESS='0.0.0.0'}
